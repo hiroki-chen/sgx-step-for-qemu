@@ -24,149 +24,174 @@
 #include "debug.h"
 #include "file.h"
 
-int claim_cpu(int cpu)
+int
+claim_cpu (int cpu)
 {
-    cpu_set_t cpuset;
+  cpu_set_t cpuset;
 
-    CPU_ZERO(&cpuset);
-    CPU_SET(cpu, &cpuset);
-    ASSERT(sched_setaffinity(0, sizeof(cpuset), &cpuset) >= 0);
-    libsgxstep_info("continuing on CPU %d", cpu);
-    return 0;
+  CPU_ZERO (&cpuset);
+  CPU_SET (cpu, &cpuset);
+  ASSERT (sched_setaffinity (0, sizeof (cpuset), &cpuset) >= 0);
+  libsgxstep_info ("continuing on CPU %d", cpu);
+  return 0;
 }
 
-int get_designated_cpu( void )
+int
+get_designated_cpu (void)
 {
-	cpu_set_t set;
-	int i;
-	
-	if ( sched_getaffinity( 0, sizeof( cpu_set_t ), &set ) )
-		return -1;
-	
-	if ( CPU_COUNT( &set ) != 1 )
-		return -2;
-	
-	for ( i = 0; i < CPU_SETSIZE; ++i )
-	{
-		if ( CPU_ISSET( i, &set ) )
-			return i;
-	}
-	
-	return -3;
-}
+  cpu_set_t set;
+  int i;
 
-int get_cpu( void )
-{
-    return sched_getcpu();
-}
+  if (sched_getaffinity (0, sizeof (cpu_set_t), &set))
+    return -1;
 
-int get_core_id(int cpu_id)
-{
-    FILE *fd;
-    ASSERT((fd = fopen("/proc/cpuinfo", "r")) >= 0);
+  if (CPU_COUNT (&set) != 1)
+    return -2;
 
-    int cur_cpu_id = -1, core_id = -1, core_id_prev = -1;
-    char buf[100];
-    while (fgets(buf, sizeof(buf), fd))
+  for (i = 0; i < CPU_SETSIZE; ++i)
     {
-        sscanf(buf, "core id : %d %*[^\n]", &core_id);
-        if (core_id != core_id_prev)
-        {
-            cur_cpu_id++;
-            if (cur_cpu_id == cpu_id) break;
-        }
-        core_id_prev = core_id;
+      if (CPU_ISSET (i, &set))
+        return i;
     }
 
-    debug("Found cpu_id=%d -> core_id=%d", cpu_id, core_id);
-    ASSERT( cur_cpu_id == cpu_id );
-    return core_id;
+  return -3;
 }
 
-unsigned int pstate_max_perf_pct( void )
+int
+get_cpu (void)
+{
+  return sched_getcpu ();
+}
+
+int
+get_core_id (int cpu_id)
+{
+  FILE *fd;
+  ASSERT ((fd = fopen ("/proc/cpuinfo", "r")) >= 0);
+
+  int cur_cpu_id = -1, core_id = -1, core_id_prev = -1;
+  char buf[100];
+  while (fgets (buf, sizeof (buf), fd))
+    {
+      sscanf (buf, "core id : %d %*[^\n]", &core_id);
+      if (core_id != core_id_prev)
+        {
+          cur_cpu_id++;
+          if (cur_cpu_id == cpu_id)
+            break;
+        }
+      core_id_prev = core_id;
+    }
+
+  debug ("Found cpu_id=%d -> core_id=%d", cpu_id, core_id);
+  ASSERT (cur_cpu_id == cpu_id);
+  return core_id;
+}
+
+unsigned int
+pstate_max_perf_pct (void)
 {
 #if HAS_PSTATE
-	int result;
-	
-	// file_read_int( "/sys/devices/system/cpu/intel_pstate/max_perf_pct", &result );
-	return result;
-#else
-	return 0;
-#endif
-}
+  // int result;
 
-int pstate_set_max_perf_pct( unsigned int val)
-{
-#if HAS_PSTATE
-	// return file_write_int( "/sys/devices/system/cpu/intel_pstate/max_perf_pct", (int) val);
-#else
-    return -1;
-#endif
-}
-
-unsigned int pstate_min_perf_pct( void )
-{
-#if HAS_PSTATE
-	int result;
-	
-	// file_read_int("/sys/devices/system/cpu/intel_pstate/min_perf_pct", &result);
-	return result;
-#else
-	return 0;
-#endif
-}
-
-int pstate_set_min_perf_pct( unsigned int val)
-{
-#if HAS_PSTATE
-	// return file_write_int( "/sys/devices/system/cpu/intel_pstate/min_perf_pct", (int) val);
-#else
-    return -1;
-#endif
-}
-
-int disable_turbo(void)
-{
-#ifdef HAS_TURBO
-    return file_write_int( "/sys/devices/system/cpu/intel_pstate/no_turbo", 1);
-#else
-    return -1;
-#endif
-}
-
-int turbo_enabled( void )
-{
-#ifdef HAS_TURBO
-	int result;
-
-  file_read_int( "/sys/devices/system/cpu/intel_pstate/no_turbo", &result);
-	return (result == 0)? 1 : 0;
+  // file_read_int( "/sys/devices/system/cpu/intel_pstate/max_perf_pct",
+  // &result ); return result;
+  return 0;
 #else
   return 0;
 #endif
 }
 
-int restore_system_state(void)
+int
+pstate_set_max_perf_pct (unsigned int val)
 {
-    return !(pstate_set_max_perf_pct(100) && pstate_set_min_perf_pct(100) && disable_turbo());
+#if HAS_PSTATE
+  // return file_write_int(
+  // "/sys/devices/system/cpu/intel_pstate/max_perf_pct", (int) val);
+  return -1;
+#else
+  return -1;
+#endif
 }
 
-int prepare_system_for_benchmark(int pstate_perf_pct)
+unsigned int
+pstate_min_perf_pct (void)
 {
-    return !(pstate_set_min_perf_pct(pstate_perf_pct) && pstate_set_max_perf_pct(pstate_perf_pct) && disable_turbo());
+#if HAS_PSTATE
+  // int result;
+
+  // file_read_int("/sys/devices/system/cpu/intel_pstate/min_perf_pct",
+  // &result);
+  return 0;
+#else
+  return 0;
+#endif
 }
 
-int print_system_settings(void)
+int
+pstate_set_min_perf_pct (unsigned int val)
 {
-    int pin = 0;
+#if HAS_PSTATE
+  // return file_write_int(
+  // "/sys/devices/system/cpu/intel_pstate/min_perf_pct", (int) val);
+  return -1;
+#else
+  return -1;
+#endif
+}
 
-	printf( "==== System Settings ====\n" );
-	printf( "    Pstate max perf pct: %d\n", pstate_max_perf_pct() );
-	printf( "    Pstate min perf pct: %d\n", pstate_min_perf_pct() );
-	printf( "    Turbo Boost:         %d\n", turbo_enabled() );
+int
+disable_turbo (void)
+{
+#ifdef HAS_TURBO
+  // return file_write_int( "/sys/devices/system/cpu/intel_pstate/no_turbo",
+  // 1);
+  return -1;
+#else
+  return -1;
+#endif
+}
 
-	printf( "    cpu pinning:         %d\n", pin = (get_designated_cpu() >= 0));
-	if (pin)
-    printf( "    Designated cpu:      %d\n", get_designated_cpu() );
-	printf( "    Running on cpu:      %d\n", get_cpu()  );
+int
+turbo_enabled (void)
+{
+#ifdef HAS_TURBO
+  // int result;
+
+  // file_read_int( "/sys/devices/system/cpu/intel_pstate/no_turbo", &result);
+  // return (result == 0) ? 1 : 0;
+  return 0;
+#else
+  return 0;
+#endif
+}
+
+int
+restore_system_state (void)
+{
+  return !(pstate_set_max_perf_pct (100) && pstate_set_min_perf_pct (100)
+           && disable_turbo ());
+}
+
+int
+prepare_system_for_benchmark (int pstate_perf_pct)
+{
+  return !(pstate_set_min_perf_pct (pstate_perf_pct)
+           && pstate_set_max_perf_pct (pstate_perf_pct) && disable_turbo ());
+}
+
+int
+print_system_settings (void)
+{
+  int pin = 0;
+
+  printf ("==== System Settings ====\n");
+  printf ("    Pstate max perf pct: %d\n", pstate_max_perf_pct ());
+  printf ("    Pstate min perf pct: %d\n", pstate_min_perf_pct ());
+  printf ("    Turbo Boost:         %d\n", turbo_enabled ());
+
+  printf ("    cpu pinning:         %d\n", pin = (get_designated_cpu () >= 0));
+  if (pin)
+    printf ("    Designated cpu:      %d\n", get_designated_cpu ());
+  printf ("    Running on cpu:      %d\n", get_cpu ());
 }
