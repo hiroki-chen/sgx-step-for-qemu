@@ -4,11 +4,13 @@ PWD            := $(shell pwd)
 obj-m          += $(LKM).o
 $(LKM)-objs     = sgxstep.o
 
+KERN_SOURCE ?= /lib/modules/$(shell uname -r)/build
+
 all:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	make -C $(KERN_SOURCE) M=$(PWD) modules
 
 clean:
-	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	make -C $(KERN_SOURCE) M=$(PWD) clean
 
 unload:
 	sudo rmmod $(LKM).ko || true

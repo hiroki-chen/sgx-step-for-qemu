@@ -97,9 +97,10 @@ long sgx_step_get_pt_mapping(struct file *filep, unsigned int cmd, unsigned long
 		return 0;
 
     #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,11,0))
+        /* Currently we ignore this warning since we are building module for another kernel. */
         #if CONFIG_PGTABLE_LEVELS > 4
-            #warning 5-level page tables currently not supported by SGX-Step
-            #warning unfolding dummy p4d; try rebooting with `no5lvl` kernel parameter if needed
+            // #warning 5-level page tables currently not supported by SGX-Step
+            // #warning unfolding dummy p4d; try rebooting with `no5lvl` kernel parameter if needed
         #endif
 
         /* simply unfold the pgd inside the dummy p4d struct */
