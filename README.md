@@ -131,6 +131,36 @@ $ sudo update-grub && reboot
 $ cat /proc/cmdline
 ```
 
+If you are using QEMU, make sure the current version of QEMU supports SGX emulation, and your hardware should also support SGX. For best performance, a cloud image of Ubuntu 20.04 is recommended, but its kernel is outdated (5.4.0), so you may need to compile a newer kernel with SGX support. Intel's tutorial may be helpful: https://www.intel.com/content/www/us/en/developer/articles/technical/virtualizing-intel-software-guard-extensions-with-kvm-and-qemu.html
+
+This toturial may also be helpful: https://hiroki-chen.notion.site/The-Linux-Kernel-Playground-f1f7b0d7926f4f95bbaa2a428517b2ee
+
+After configuration, you can launch the instance by
+
+```bash
+$ img=$(pwd)/ubuntu-20.04-server-cloudimg-amd64.img
+$ user=$(pwd)/user-data.img
+$ kernel=$(pwd)/linux/arch/x86_64/boot/bzImage
+$ boot_flags="root=/dev/sda1 console=ttyS0 \
+            nox2apic iomem=relaxed no_timer_check nosmep nosmap clearcpuid=514 kpti=0 isolcpus=1 \
+            nmi_watchdog=0 rcupdate.rcu_cpu_stall_suppress=1 msr.allow_writes=on vdso=0"
+
+$ sudo qemu-system-x86_64 \
+  -cpu host,+sgx-provisionkey,+sgx \
+  -object memory-backend-epc,id=mem1,size=128M,prealloc=on \
+	-M sgx-epc.0.memdev=mem1,sgx-epc.0.node=0 \
+  -drive "file=$img,format=qcow2" \
+  -drive "file=$user,format=raw" \
+  -enable-kvm \
+  -m 4G \
+  -serial mon:stdio \
+  -smp $(nproc) \
+  -nographic \
+  -nic user,model=e1000e \
+  -kernel $kernel \
+  -append "$boot_flags"
+```
+
 Finally, to improve overall execution time stability, you may opt to
 additionally disable C-States and SpeedStep technology in the BIOS
 configuration.
@@ -143,13 +173,22 @@ hooking the APIC timer interrupt handler, (ii) collecting untrusted page table
 mappings, and optionally (iii) fetching the interrupted instruction pointer for
 benchmark enclaves.
 
-To build and load the `/dev/sgx-step` driver, execute:
+(Build for the current running kernel) To build and load the `/dev/sgx-step` driver, execute:
 
 ```bash
 $ cd kernel/
 $ ./install_SGX_driver.sh              # tested on Ubuntu 18.04/20.04/22.04
 $ make clean load
 ```
+
+(Build for a custom kernel) To build the `/dev/sgx-step` driver, you should make sure you are under the source folder of the kernel you are buildin, and then you execute:
+
+```bash
+$ KERN_SOURCE=<kernel_source> make all
+```
+
+This will build `sgx-step.ko` in the currently directory. You can use `insmod` to load it when you start the QEMU session.
+
 **Note (/dev/sgx_enclave).** SGX-Step supports both the legacy Intel
 `/dev/isgx` out-of-tree driver that should work on all platforms, as well as
 well as the upstream `/dev/sgx_enclave` driver for platforms with recent Linux
