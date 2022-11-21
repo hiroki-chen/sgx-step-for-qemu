@@ -10,7 +10,7 @@ all:
 	make -C $(KERN_SOURCE) M=$(PWD) modules
 
 clean:
-	make -C $(KERN_SOURCE) M=$(PWD) clean
+,	make -C $(KERN_SOURCE) M=$(PWD) clean
 
 unload:
 	sudo rmmod $(LKM).ko || true
